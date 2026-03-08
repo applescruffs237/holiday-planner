@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>Holiday Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #0a0e1a; overflow: hidden; }
+    #root { height: 100%; }
+    input, textarea, select, button { font-size: 16px !important; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script>
+var HolidayApp = (() => {
+  var __create = Object.create;
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getProtoOf = Object.getPrototypeOf;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+    get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+  }) : x)(function(x) {
+    if (typeof require !== "undefined") return require.apply(this, arguments);
+    throw Error('Dynamic require of "' + x + '" is not supported');
+  });
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+    mod
+  ));
+  var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+  // home/claude/entry.jsx
+  var entry_exports = {};
+  __export(entry_exports, {
+    default: () => App
+  });
+  var import_react = __toESM(__require("react"));
+  var import_client = __require("react-dom/client");
+  var import_jsx_runtime = __require("react/jsx-runtime");
+  var AMADEUS_KEY = "PVSpokH4EI3jKye0sXeUDyIMR74oFcQG";
+  var AMADEUS_SECRET = "CnAhFVr8ht8xEPFY";
+  async function searchLocations(keyword) {
+    try {
+      const tr = await fetch("https://test.api.amadeus.com/v1/security/oauth2/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `grant_type=client_credentials&client_id=${AMADEUS_KEY}&client_secret=${AMADEUS_SECRET}`
+      });
+      const { access_token } = await tr.json();
+      const r = await fetch(
+        `https://test.api.amadeus.com/v1/reference-data/locations?subType=AIRPORT,CITY&keyword=${encodeURIComponent(keyword)}&page[limit]=8`,
+        { headers: { Authorization: `Bearer ${access_token}` } }
+      );
+      const d = await r.json();
+      return (d.data || []).map((l) => ({ iata: l.iataCode, name: l.name, cityName: l.address?.cityName || l.name, countryName: l.address?.countryName || "" }));
+    } catch {
+      return [];
+    }
+  }
+  async function fetchPriceCalendar(origin, destination) {
+    try {
+      const tr = await fetch("https://test.api.amadeus.com/v1/security/oauth2/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `grant_type=client_credentials&client_id=${AMADEUS_KEY}&client_secret=${AMADEUS_SECRET}`
+      });
+      const { access_token } = await tr.json();
+      const r = await fetch(
+        `https://test.api.amadeus.com/v1/shopping/flight-dates?origin=${origin}&destination=${destination}&currency=GBP&viewBy=DATE`,
+        { headers: { Authorization: `Bearer ${access_token}` } }
+      );
+      const d = await r.json();
+      const map = {};
+      (d.data || []).forEach((item) => {
+        if (item.price?.total) map[item.departure] = parseFloat(item.price.total);
+      });
+      return map;
+    } catch {
+      return {};
+    }
+  }
+  var SCHOOL_HOLS = [
+    { s: "2026-02-16", e: "2026-02-20", n: "Spring Half Term" },
+    { s: "2026-03-28", e: "2026-04-12", n: "Easter" },
+    { s: "2026-05-25", e: "2026-05-29", n: "May Half Term" },
+    { s: "2026-07-21", e: "2026-09-01", n: "Summer" },
+    { s: "2026-10-26", e: "2026-10-30", n: "Autumn Half Term" },
+    { s: "2026-12-19", e: "2027-01-03", n: "Christmas" },
+    { s: "2027-02-15", e: "2027-02-19", n: "Spring Half Term" },
+    { s: "2027-03-26", e: "2027-04-11", n: "Easter" },
+    { s: "2027-05-31", e: "2027-06-04", n: "May Half Term" },
+    { s: "2027-07-23", e: "2027-09-01", n: "Summer" },
+    { s: "2027-10-25", e: "2027-10-29", n: "Autumn Half Term" },
+    { s: "2027-12-20", e: "2028-01-03", n: "Christmas" },
+    { s: "2028-02-14", e: "2028-02-18", n: "Spring Half Term" },
+    { s: "2028-04-01", e: "2028-04-17", n: "Easter" },
+    { s: "2028-05-29", e: "2028-06-02", n: "May Half Term" },
+    { s: "2028-07-22", e: "2028-09-04", n: "Summer" },
+    { s: "2028-10-23", e: "2028-10-27", n: "Autumn Half Term" },
+    { s: "2028-12-18", e: "2029-01-01", n: "Christmas" },
+    { s: "2029-02-12", e: "2029-02-16", n: "Spring Half Term" },
+    { s: "2029-03-30", e: "2029-04-13", n: "Easter" },
+    { s: "2029-05-28", e: "2029-06-01", n: "May Half Term" },
+    { s: "2029-07-25", e: "2029-09-02", n: "Summer" },
+    { s: "2029-10-22", e: "2029-10-26", n: "Autumn Half Term" },
+    { s: "2029-12-21", e: "2030-01-01", n: "Christmas" },
+    { s: "2030-02-18", e: "2030-02-22", n: "Spring Half Term" },
+    { s: "2030-04-08", e: "2030-04-22", n: "Easter" },
+    { s: "2030-05-27", e: "2030-05-31", n: "May Half Term" },
+    { s: "2030-07-26", e: "2030-09-01", n: "Summer" }
+  ];
+  var BH_MAP = {
+    // 2026 — Boxing Day (Sat 26th) substituted to Mon 28th
+    "2026-01-01": "New Year's Day",
+    "2026-04-03": "Good Friday",
+    "2026-04-06": "Easter Monday",
+    "2026-05-04": "Early May BH",
+    "2026-05-25": "Spring BH",
+    "2026-08-31": "Summer BH",
+    "2026-12-25": "Christmas Day",
+    "2026-12-28": "Boxing Day (sub. Mon)",
+    // 2027 — Christmas (Sat 25th) → Mon 27th, Boxing Day (Sun 26th) → Tue 28th
+    "2027-01-01": "New Year's Day",
+    "2027-03-26": "Good Friday",
+    "2027-03-29": "Easter Monday",
+    "2027-05-03": "Early May BH",
+    "2027-05-31": "Spring BH",
+    "2027-08-30": "Summer BH",
+    "2027-12-27": "Christmas Day (sub. Mon)",
+    "2027-12-28": "Boxing Day (sub. Tue)",
+    // 2028 — New Year's Day (Sat 1st) → Mon 3rd
+    "2028-01-03": "New Year's Day (sub. Mon)",
+    "2028-04-14": "Good Friday",
+    "2028-04-17": "Easter Monday",
+    "2028-05-01": "Early May BH",
+    "2028-05-29": "Spring BH",
+    "2028-08-28": "Summer BH",
+    "2028-12-25": "Christmas Day",
+    "2028-12-26": "Boxing Day",
+    // 2029 — no substitutions needed
+    "2029-01-01": "New Year's Day",
+    "2029-03-30": "Good Friday",
+    "2029-04-02": "Easter Monday",
+    "2029-05-07": "Early May BH",
+    "2029-05-28": "Spring BH",
+    "2029-08-27": "Summer BH",
+    "2029-12-25": "Christmas Day",
+    "2029-12-26": "Boxing Day",
+    // 2030 — no substitutions needed
+    "2030-01-01": "New Year's Day",
+    "2030-04-19": "Good Friday",
+    "2030-04-22": "Easter Monday",
+    "2030-05-06": "Early May BH",
+    "2030-05-27": "Spring BH",
+    "2030-08-26": "Summer BH",
+    "2030-12-25": "Christmas Day",
+    "2030-12-26": "Boxing Day"
+  };
+  var AIRPORTS = [{ iata: "LON", label: "All London" }, { iata: "LHR", label: "Heathrow" }, { iata: "LGW", label: "Gatwick" }, { iata: "LCY", label: "City" }, { iata: "STN", label: "Stansted" }];
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var DTINY = ["M", "T", "W", "T", "F", "S", "S"];
+  var AL_TOTAL_DEFAULT = 25;
+  var HC_TARGET_DEFAULT = 35;
+  var SK = "hp-al-v1";
+  var SK_HC = "hp-hc-v1";
+  var SK_CFG = "hp-cfg-v1";
+  function pad(n) {
+    return String(n).padStart(2, "0");
+  }
+  function fmt(d) {
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  function parse(s) {
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
+  function next(ds) {
+    const d = parse(ds);
+    d.setDate(d.getDate() + 1);
+    return fmt(d);
+  }
+  function inR(ds, s, e) {
+    return ds >= s && ds <= e;
+  }
+  function dim(y, m) {
+    return new Date(y, m + 1, 0).getDate();
+  }
+  function fdow(y, m) {
+    const d = new Date(y, m, 1).getDay();
+    return d === 0 ? 6 : d - 1;
+  }
+  function isWE(ds) {
+    const d = parse(ds).getDay();
+    return d === 0 || d === 6;
+  }
+  function isBH(ds) {
+    return !!BH_MAP[ds];
+  }
+  function isAL(ds) {
+    return !isWE(ds) && !isBH(ds);
+  }
+  function countAL(s, e) {
+    let c = 0, d = s;
+    while (d <= e) {
+      if (isAL(d)) c++;
+      d = next(d);
+    }
+    return c;
+  }
+  function rDates(s, e) {
+    const a = [];
+    let d = s;
+    while (d <= e) {
+      a.push(d);
+      d = next(d);
+    }
+    return a;
+  }
+  function dInfo(ds) {
+    return { bh: BH_MAP[ds] || null, sch: SCHOOL_HOLS.find((h) => inR(ds, h.s, h.e)) || null, we: isWE(ds), d: parse(ds) };
+  }
+  function tier(p, arr) {
+    if (!p || !arr.length) return null;
+    const s = [...arr].sort((a, b) => a - b);
+    if (p <= s[Math.floor(s.length * 0.33)]) return "lo";
+    if (p <= s[Math.floor(s.length * 0.66)]) return "mi";
+    return "hi";
+  }
+  function loadBk() {
+    try {
+      return JSON.parse(localStorage.getItem(SK) || "[]");
+    } catch {
+      return [];
+    }
+  }
+  function saveBk(b) {
+    try {
+      localStorage.setItem(SK, JSON.stringify(b));
+    } catch {
+    }
+  }
+  function loadHC() {
+    try {
+      return JSON.parse(localStorage.getItem(SK_HC) || "[]");
+    } catch {
+      return [];
+    }
+  }
+  function saveHC(b) {
+    try {
+      localStorage.setItem(SK_HC, JSON.stringify(b));
+    } catch {
+    }
+  }
+  function loadCfg() {
+    try {
+      return JSON.parse(localStorage.getItem(SK_CFG) || "{}");
+    } catch {
+      return {};
+    }
+  }
+  function saveCfg(c) {
+    try {
+      localStorage.setItem(SK_CFG, JSON.stringify(c));
+    } catch {
+    }
+  }
+  function TrackerBars({ alUsed, hcUsed, alTotal, hcTarget, onOpenAL, onOpenHC }) {
+    const rem = alTotal - alUsed;
+    const alCol = rem <= 5 ? "#f87171" : rem <= 10 ? "#fbbf24" : "#a78bfa";
+    const alPct = Math.min(100, alUsed / alTotal * 100);
+    const hcPct = Math.min(100, hcUsed / hcTarget * 100);
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, marginBottom: 8 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { onClick: onOpenAL, style: { flex: 1, background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.18)", borderRadius: 10, padding: "8px 10px", cursor: "pointer" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 10, color: "#a78bfa" }, children: "Annual Leave" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 12, color: alCol }, children: [
+            rem,
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 8, fontWeight: 600, color: "#475569" }, children: " left" })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { height: 4, background: "rgba(255,255,255,0.07)", borderRadius: 2, overflow: "hidden" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { height: "100%", width: `${alPct}%`, background: "linear-gradient(90deg,#a78bfa,#7c3aed)", borderRadius: 2, transition: "width 0.4s" } }) })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { onClick: onOpenHC, style: { flex: 1, background: "rgba(34,211,238,0.08)", border: "1px solid rgba(34,211,238,0.18)", borderRadius: 10, padding: "8px 10px", cursor: "pointer" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 10, color: "#22d3ee" }, children: "Holiday Club" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 12, color: "#22d3ee" }, children: [
+            hcUsed,
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 8, fontWeight: 600, color: "#475569" }, children: " days" })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { height: 4, background: "rgba(255,255,255,0.07)", borderRadius: 2, overflow: "hidden" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { height: "100%", width: `${hcPct}%`, background: "linear-gradient(90deg,#22d3ee,#0891b2)", borderRadius: 2, transition: "width 0.4s" } }) })
+      ] })
+    ] });
+  }
+  function MiniMonth({ year, month, onPress, selDate, priceMap, showP, bookings, rangeStart, hcBookings, hcRangeStart }) {
+    const cells = [];
+    for (let i = 0; i < fdow(year, month); i++) cells.push(null);
+    for (let d = 1; d <= dim(year, month); d++) cells.push(fmt(new Date(year, month, d)));
+    const mP = showP ? cells.filter(Boolean).map((ds) => priceMap[ds]).filter(Boolean) : [];
+    const bkSet = new Set(bookings.flatMap((b) => rDates(b.start, b.end)));
+    const hcSet = new Set(hcBookings.flatMap((b) => rDates(b.start, b.end)));
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { textAlign: "center", fontFamily: "Syne,sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: "#334155", textTransform: "uppercase", marginBottom: 5 }, children: MONTHS[month] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 1.5 }, children: [
+        DTINY.map((d, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { textAlign: "center", fontSize: 7.5, color: "#1e293b", fontFamily: "Syne,sans-serif", fontWeight: 700, paddingBottom: 2 }, children: d }, i)),
+        cells.map((ds, i) => {
+          if (!ds) return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {}, i);
+          const { bh, sch, we } = dInfo(ds);
+          const dn = parse(ds).getDate();
+          const sel = ds === selDate || ds === rangeStart || ds === hcRangeStart;
+          const p = showP ? priceMap[ds] : null;
+          const t = p ? tier(p, mP) : null;
+          const booked = bkSet.has(ds) && isAL(ds);
+          const hcBooked = hcSet.has(ds) && isAL(ds);
+          let bg = "transparent", col = we ? "#334155" : "#475569", fw = 400;
+          if (we) bg = "rgba(255,255,255,0.02)";
+          if (sch) {
+            bg = "rgba(59,130,246,0.10)";
+            col = "#60a5fa";
+          }
+          if (bh) {
+            bg = "rgba(34,197,94,0.18)";
+            col = "#4ade80";
+            fw = 700;
+          }
+          if (t && !bh) {
+            if (t === "lo") {
+              bg = "rgba(34,197,94,0.20)";
+              if (!sch) col = "#4ade80";
+            }
+            if (t === "mi") {
+              bg = "rgba(251,191,36,0.16)";
+              if (!sch) col = "#fbbf24";
+            }
+            if (t === "hi") {
+              bg = "rgba(239,68,68,0.16)";
+              if (!sch) col = "#f87171";
+            }
+          }
+          return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { onClick: () => onPress(ds), style: { display: "flex", alignItems: "center", justifyContent: "center", aspectRatio: "1", background: bg, borderRadius: 3, cursor: "pointer", outline: sel ? "2px solid #a78bfa" : "none", outlineOffset: "-1px", position: "relative" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 9, fontFamily: "Syne,sans-serif", color: col, fontWeight: fw, lineHeight: 1 }, children: dn }),
+            booked && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "absolute", bottom: 1, left: "30%", transform: "translateX(-50%)", width: 3, height: 3, borderRadius: "50%", background: "#a78bfa" } }),
+            hcBooked && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "absolute", bottom: 1, left: "70%", transform: "translateX(-50%)", width: 3, height: 3, borderRadius: "50%", background: "#22d3ee" } })
+          ] }, i);
+        })
+      ] })
+    ] });
+  }
+  function DaySheet({ ds, onClose, priceMap, showP, dest, origin, bookings, onAddAL, onStartRange, onDeleteBk, rangeStart, hcBookings, onAddHC, onStartHCRange, onDeleteHC, hcRangeStart }) {
+    if (!ds) return null;
+    const { bh, sch, we, d } = dInfo(ds);
+    const lbl = d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    const price = showP ? priceMap[ds] : null;
+    const bk = bookings.find((b) => inR(ds, b.start, b.end));
+    const hcBk = hcBookings.find((b) => inR(ds, b.start, b.end));
+    const inRM = !!rangeStart;
+    const isRS = rangeStart === ds;
+    const rAL = inRM && !isRS ? countAL(rangeStart < ds ? rangeStart : ds, rangeStart < ds ? ds : rangeStart) : 0;
+    const inHCRM = !!hcRangeStart;
+    const isHCRS = hcRangeStart === ds;
+    const rHC = inHCRM && !isHCRS ? countAL(hcRangeStart < ds ? hcRangeStart : ds, hcRangeStart < ds ? ds : hcRangeStart) : 0;
+    const sky = dest ? `https://www.skyscanner.net/transport/flights/${origin.toLowerCase()}/${dest.iata.toLowerCase()}/${String(d.getFullYear()).slice(2)}${pad(d.getMonth() + 1)}${pad(d.getDate())}/` : null;
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "flex-end", background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }, onClick: onClose, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { width: "100%", background: "linear-gradient(180deg,#1e1b4b 0%,#0f172a 100%)", borderRadius: "20px 20px 0 0", border: "1px solid rgba(255,255,255,0.08)", padding: "0 0 48px", maxHeight: "75vh", overflowY: "auto" }, onClick: (e) => e.stopPropagation(), children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", justifyContent: "center", padding: "10px 0 0" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.15)" } }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { padding: "12px 18px 8px" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 12, fontWeight: 700, color: "#94a3b8" }, children: lbl }) }),
+      !we && !bh && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { margin: "0 12px 6px", padding: "12px 14px", background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.2)", borderRadius: 12 }, children: bk ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 12, color: "#a78bfa" }, children: "\u{1F7E3} Annual Leave" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 10, color: "#64748b", marginTop: 2 }, children: [
+              parse(bk.start).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+              bk.start !== bk.end && ` \u2013 ${parse(bk.end).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
+              ` \xB7 ${bk.alDays} annual leave ${bk.alDays === 1 ? "day" : "days"}`
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => {
+            onDeleteBk(bk.id);
+            onClose();
+          }, style: { background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "6px 10px", color: "#f87171", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 10, cursor: "pointer" }, children: "Delete" })
+        ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 11, color: "#94a3b8", marginBottom: 8 }, children: "Add Annual Leave" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => {
+              onAddAL(ds, ds);
+              onClose();
+            }, style: { flex: 1, padding: "8px", background: "rgba(167,139,250,0.2)", border: "1px solid rgba(167,139,250,0.35)", borderRadius: 9, color: "#a78bfa", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 11, cursor: "pointer" }, children: "This day" }),
+            !inRM ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => {
+              onStartRange(ds);
+              onClose();
+            }, style: { flex: 1, padding: "8px", background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.2)", borderRadius: 9, color: "#7c3aed", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 11, cursor: "pointer" }, children: "Start range \u2192" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => {
+              const a = rangeStart < ds ? rangeStart : ds;
+              const b = rangeStart < ds ? ds : rangeStart;
+              onAddAL(a, b);
+              onClose();
+            }, style: { flex: 1, padding: "8px", background: "rgba(167,139,250,0.25)", border: "2px solid #a78bfa", borderRadius: 9, color: "#a78bfa", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 11, cursor: "pointer" }, children: "End range here" })
+          ] }),
+          inRM && !isRS && rAL > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 6, fontFamily: "Syne,sans-serif", fontSize: 10, color: "#475569", textAlign: "center" }, children: [
+            rAL,
+            " AL days in this range"
+          ] })
+        ] }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { margin: "0 12px 6px", padding: "12px 14px", background: "rgba(34,211,238,0.07)", border: "1px solid rgba(34,211,238,0.2)", borderRadius: 12 }, children: hcBk ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 12, color: "#22d3ee" }, children: "\u{1F534} Holiday Club" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 10, color: "#64748b", marginTop: 2 }, children: [
+              parse(hcBk.start).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+              hcBk.start !== hcBk.end && ` \u2013 ${parse(hcBk.end).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
+              ` \xB7 ${hcBk.alDays} ${hcBk.alDays === 1 ? "day" : "days"}`
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => {
+            onDeleteHC(hcBk.id);
+            onClose();
+          }, style: { background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "6px 10px", color: "#f87171", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 10, cursor: "pointer" }, children: "Delete" })
+        ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 11, color: "#94a3b8", marginBottom: 8 }, children: "Add Holiday Club" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => {
+              onAddHC(ds, ds);
+              onClose();
+            }, style: { flex: 1, padding: "8px", background: "rgba(34,211,238,0.18)", border: "1px solid rgba(34,211,238,0.35)", borderRadius: 9, color: "#22d3ee", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 11, cursor: "pointer" }, children: "This day" }),
+            !inHCRM ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => {
+              onStartHCRange(ds);
+              onClose();
+            }, style: { flex: 1, padding: "8px", background: "rgba(34,211,238,0.07)", border: "1px solid rgba(34,211,238,0.2)", borderRadius: 9, color: "#0891b2", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 11, cursor: "pointer" }, children: "Start range \u2192" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => {
+              const a = hcRangeStart < ds ? hcRangeStart : ds;
+              const b = hcRangeStart < ds ? ds : hcRangeStart;
+              onAddHC(a, b);
+              onClose();
+            }, style: { flex: 1, padding: "8px", background: "rgba(34,211,238,0.25)", border: "2px solid #22d3ee", borderRadius: 9, color: "#22d3ee", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 11, cursor: "pointer" }, children: "End range here" })
+          ] }),
+          inHCRM && !isHCRS && rHC > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 6, fontFamily: "Syne,sans-serif", fontSize: 10, color: "#475569", textAlign: "center" }, children: [
+            rHC,
+            " days in this range"
+          ] })
+        ] }) })
+      ] }),
+      showP && price && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { margin: "4px 12px", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 12, padding: "11px 14px" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 12 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 18 }, children: "\u2708\uFE0F" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 12, color: "#a5b4fc" }, children: [
+              origin,
+              " \u2192 ",
+              dest?.iata,
+              " \xB7 ",
+              dest?.cityName
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 10, color: "#475569", marginTop: 1 }, children: "Cheapest one-way \xB7 1 adult" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 22, color: "#e2e8f0" }, children: [
+            "\xA3",
+            Math.round(price)
+          ] })
+        ] }),
+        sky && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("a", { href: sky, target: "_blank", rel: "noopener noreferrer", style: { display: "block", marginTop: 10, textAlign: "center", background: "rgba(99,102,241,0.2)", border: "1px solid rgba(99,102,241,0.35)", borderRadius: 8, padding: "8px", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 11, color: "#a5b4fc", textDecoration: "none" }, children: "Search on Skyscanner \u2192" })
+      ] }),
+      showP && !price && dest && sky && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { margin: "4px 12px", padding: "10px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 11, color: "#334155", marginBottom: 8 }, children: "No cached fare for this date." }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("a", { href: sky, target: "_blank", rel: "noopener noreferrer", style: { display: "block", textAlign: "center", background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 8, padding: "8px", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 11, color: "#a5b4fc", textDecoration: "none" }, children: "Search on Skyscanner \u2192" })
+      ] }),
+      bh && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { margin: "4px 12px", background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 12, padding: "11px 14px", display: "flex", gap: 10, alignItems: "center" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 17 }, children: "\u{1F7E2}" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 12, color: "#4ade80" }, children: bh }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 10, color: "#475569" }, children: "UK Bank Holiday" })
+        ] })
+      ] }),
+      sch && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { margin: "4px 12px", background: "rgba(59,130,246,0.07)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 12, padding: "11px 14px", display: "flex", gap: 10, alignItems: "center" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 17 }, children: "\u{1F4DA}" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 12, color: "#60a5fa" }, children: sch.n }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 10, color: "#475569" }, children: "Lewisham school holiday" })
+        ] })
+      ] })
+    ] }) });
+  }
+  function ALPanel({ bookings, year, alTotal, onDelete, onClose }) {
+    const yb = bookings.filter((b) => b.year === year).sort((a, b) => a.start.localeCompare(b.start));
+    const used = yb.reduce((s, b) => s + b.alDays, 0);
+    const rem = alTotal - used;
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "flex-end", background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }, onClick: onClose, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { width: "100%", background: "linear-gradient(180deg,#1e1b4b 0%,#0f172a 100%)", borderRadius: "20px 20px 0 0", border: "1px solid rgba(255,255,255,0.08)", padding: "0 16px 48px", maxHeight: "80vh", overflowY: "auto" }, onClick: (e) => e.stopPropagation(), children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", justifyContent: "center", padding: "10px 0 0" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.15)" } }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "14px 0 10px", display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 15, color: "#a78bfa" }, children: [
+          "Annual Leave ",
+          year
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 12, color: rem <= 5 ? "#f87171" : rem <= 10 ? "#fbbf24" : "#4ade80" }, children: [
+          rem,
+          " days remaining"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { height: 6, background: "rgba(255,255,255,0.07)", borderRadius: 3, overflow: "hidden", marginBottom: 14 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { height: "100%", width: `${Math.min(100, used / alTotal * 100)}%`, background: "linear-gradient(90deg,#a78bfa,#7c3aed)", borderRadius: 3 } }) }),
+      yb.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { textAlign: "center", padding: "24px 0", color: "#334155", fontFamily: "Syne,sans-serif", fontSize: 13 }, children: [
+        "No annual leave booked for ",
+        year,
+        " yet.",
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("br", {}),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11, color: "#1e293b" }, children: "Tap any working day on the calendar to add." })
+      ] }),
+      yb.map((b) => {
+        const sd = parse(b.start), ed = parse(b.end);
+        const ds = b.start === b.end ? sd.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : `${sd.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} \u2013 ${ed.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
+        return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { width: 4, alignSelf: "stretch", background: "#a78bfa", borderRadius: 2, flexShrink: 0 } }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 12, color: "#e2e8f0" }, children: "Annual Leave" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 10, color: "#64748b", marginTop: 1 }, children: ds })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 12, color: "#a78bfa", flexShrink: 0 }, children: [
+            b.alDays,
+            "d"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => onDelete(b.id), style: { background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, padding: "5px 8px", color: "#f87171", cursor: "pointer", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 10 }, children: "\u2715" })
+        ] }, b.id);
+      }),
+      yb.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 14, padding: "10px 12px", background: "rgba(167,139,250,0.07)", border: "1px solid rgba(167,139,250,0.15)", borderRadius: 10, display: "flex", justifyContent: "space-between" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontFamily: "Syne,sans-serif", fontSize: 11, color: "#475569" }, children: "Total booked" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 11, color: "#a78bfa" }, children: [
+          used,
+          " of ",
+          alTotal,
+          " days"
+        ] })
+      ] })
+    ] }) });
+  }
+  function HCPanel({ hcBookings, year, onDelete, onClose }) {
+    const yb = hcBookings.filter((b) => b.year === year).sort((a, b) => a.start.localeCompare(b.start));
+    const used = yb.reduce((s, b) => s + b.alDays, 0);
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "flex-end", background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }, onClick: onClose, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { width: "100%", background: "linear-gradient(180deg,#1e1b4b 0%,#0f172a 100%)", borderRadius: "20px 20px 0 0", border: "1px solid rgba(255,255,255,0.08)", padding: "0 16px 48px", maxHeight: "80vh", overflowY: "auto" }, onClick: (e) => e.stopPropagation(), children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", justifyContent: "center", padding: "10px 0 0" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.15)" } }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "14px 0 10px", display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 15, color: "#22d3ee" }, children: [
+          "Holiday Club ",
+          year
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 12, color: "#22d3ee" }, children: [
+          used,
+          " ",
+          used === 1 ? "day" : "days",
+          " booked"
+        ] })
+      ] }),
+      yb.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { textAlign: "center", padding: "24px 0", color: "#334155", fontFamily: "Syne,sans-serif", fontSize: 13 }, children: [
+        "No holiday club booked for ",
+        year,
+        " yet.",
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("br", {}),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11, color: "#1e293b" }, children: "Tap any working day on the calendar to add." })
+      ] }),
+      yb.map((b) => {
+        const sd = parse(b.start), ed = parse(b.end);
+        const ds = b.start === b.end ? sd.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : `${sd.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} \u2013 ${ed.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
+        return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { width: 4, alignSelf: "stretch", background: "#22d3ee", borderRadius: 2, flexShrink: 0 } }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 12, color: "#e2e8f0" }, children: "Holiday Club" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 10, color: "#64748b", marginTop: 1 }, children: ds })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 12, color: "#22d3ee", flexShrink: 0 }, children: [
+            b.alDays,
+            "d"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => onDelete(b.id), style: { background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, padding: "5px 8px", color: "#f87171", cursor: "pointer", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 10 }, children: "\u2715" })
+        ] }, b.id);
+      }),
+      yb.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 14, padding: "10px 12px", background: "rgba(34,211,238,0.07)", border: "1px solid rgba(34,211,238,0.15)", borderRadius: 10, display: "flex", justifyContent: "space-between" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontFamily: "Syne,sans-serif", fontSize: 11, color: "#475569" }, children: "Total this year" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 11, color: "#22d3ee" }, children: [
+          used,
+          " ",
+          used === 1 ? "day" : "days"
+        ] })
+      ] })
+    ] }) });
+  }
+  function SettingsPanel({ alTotal, hcTarget, onAlTotal, onHcTarget, bookings, hcBookings, onImport, onClose }) {
+    const [importStatus, setImportStatus] = (0, import_react.useState)(null);
+    const fileRef = (0, import_react.useRef)(null);
+    function Stepper({ label, sublabel, value, min, max, step = 1, color, onChange }) {
+      return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { minWidth: 0, flex: 1 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 13, color: "#e2e8f0" }, children: label }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 10, color: "#475569", marginTop: 2 }, children: sublabel })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 9, overflow: "hidden", flexShrink: 0 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => onChange(Math.max(min, value - step)), style: { background: "none", border: "none", color: value <= min ? "#1e293b" : "#94a3b8", padding: "7px 13px", cursor: value <= min ? "default" : "pointer", fontSize: 16, lineHeight: 1 }, children: "\u2212" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 14, color, minWidth: 28, textAlign: "center" }, children: value }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => onChange(Math.min(max, value + step)), style: { background: "none", border: "none", color: value >= max ? "#1e293b" : "#94a3b8", padding: "7px 13px", cursor: value >= max ? "default" : "pointer", fontSize: 16, lineHeight: 1 }, children: "+" })
+        ] })
+      ] });
+    }
+    function handleExport() {
+      const payload = {
+        exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+        version: 1,
+        config: { alTotal, hcTarget },
+        bookings,
+        hcBookings
+      };
+      const json = JSON.stringify(payload, null, 2);
+      const date = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+      const dataUrl = "data:application/json;charset=utf-8," + encodeURIComponent(json);
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `holiday-planner-${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+    function handleImportFile(e) {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if (!data.version || !Array.isArray(data.bookings) || !Array.isArray(data.hcBookings)) throw new Error("Invalid");
+          onImport(data);
+          setImportStatus("ok");
+          setTimeout(() => setImportStatus(null), 3e3);
+        } catch {
+          setImportStatus("err");
+          setTimeout(() => setImportStatus(null), 3e3);
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = "";
+    }
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "flex-end", background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }, onClick: onClose, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { width: "100%", background: "linear-gradient(180deg,#1e1b4b 0%,#0f172a 100%)", borderRadius: "20px 20px 0 0", border: "1px solid rgba(255,255,255,0.08)", padding: "0 20px 48px", maxHeight: "88vh", overflowY: "auto" }, onClick: (e) => e.stopPropagation(), children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", justifyContent: "center", padding: "10px 0 0" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.15)" } }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "16px 0 4px", display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 16, color: "#f1f5f9" }, children: "Settings" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: onClose, style: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, padding: "5px 10px", color: "#94a3b8", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 11, cursor: "pointer" }, children: "Done" })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 4, paddingBottom: 4, borderBottom: "1px solid rgba(255,255,255,0.08)" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 9, fontWeight: 700, color: "#334155", letterSpacing: 1.2, textTransform: "uppercase" }, children: "Annual Leave" }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Stepper, { label: "Allowance", sublabel: "Total days per year", value: alTotal, min: 1, max: 50, color: "#a78bfa", onChange: onAlTotal }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 12, paddingBottom: 4, borderBottom: "1px solid rgba(255,255,255,0.08)" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 9, fontWeight: 700, color: "#334155", letterSpacing: 1.2, textTransform: "uppercase" }, children: "Holiday Club" }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Stepper, { label: "Bar target", sublabel: "Days at which bar fills \u2014 can exceed", value: hcTarget, min: 5, max: 100, step: 5, color: "#22d3ee", onChange: onHcTarget }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 12, paddingBottom: 4, borderBottom: "1px solid rgba(255,255,255,0.08)" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 9, fontWeight: 700, color: "#334155", letterSpacing: 1.2, textTransform: "uppercase" }, children: "Data" }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 13, color: "#e2e8f0" }, children: "Export backup" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 10, color: "#475569", marginTop: 2 }, children: "Downloads a .json file of all data" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: handleExport, style: { flexShrink: 0, background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 9, padding: "8px 14px", color: "#a5b4fc", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 11, cursor: "pointer" }, children: "Export \u2193" })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, minWidth: 0, paddingRight: 12 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 13, color: "#e2e8f0" }, children: "Import backup" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 10, marginTop: 2 }, children: [
+            importStatus === "ok" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "#4ade80" }, children: "\u2713 Restored successfully" }),
+            importStatus === "err" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "#f87171" }, children: "\u2717 Invalid file \u2014 try again" }),
+            !importStatus && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "#475569" }, children: "Replaces all current data" })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => fileRef.current?.click(), style: { flexShrink: 0, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 9, padding: "8px 14px", color: "#94a3b8", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 11, cursor: "pointer" }, children: "Import \u2191" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { ref: fileRef, type: "file", accept: ".json", onChange: handleImportFile, style: { display: "none" } })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 16, padding: "10px 12px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 10, color: "#334155", lineHeight: 1.6 }, children: "Export saves your bookings and settings as a file. Import from a previous export to restore \u2014 this will overwrite your current data." }) })
+    ] }) });
+  }
+  function LocSearch({ onSelect }) {
+    const [q, setQ] = (0, import_react.useState)("");
+    const [res, setRes] = (0, import_react.useState)([]);
+    const [loading, setLoading] = (0, import_react.useState)(false);
+    const [focused, setFocused] = (0, import_react.useState)(false);
+    const timer = (0, import_react.useRef)(null);
+    (0, import_react.useEffect)(() => {
+      if (q.length < 2) {
+        setRes([]);
+        return;
+      }
+      clearTimeout(timer.current);
+      timer.current = setTimeout(async () => {
+        setLoading(true);
+        const r = await searchLocations(q);
+        setRes(r.slice(0, 8));
+        setLoading(false);
+      }, 500);
+    }, [q]);
+    function pick(loc) {
+      setQ(loc.cityName || loc.name);
+      setRes([]);
+      onSelect(loc);
+    }
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { position: "relative", flex: 1 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.07)", border: `1px solid ${focused ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.1)"}`, borderRadius: 10, padding: "7px 10px" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 13, flexShrink: 0 }, children: loading ? "\u23F3" : "\u{1F50D}" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: q, onChange: (e) => setQ(e.target.value), onFocus: () => setFocused(true), onBlur: () => setTimeout(() => setFocused(false), 200), placeholder: "Destination city or airport\u2026", style: { background: "none", border: "none", outline: "none", fontFamily: "Syne,sans-serif", fontSize: 16, color: "#e2e8f0", flex: 1, minWidth: 0 } }),
+        q && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => {
+          setQ("");
+          setRes([]);
+        }, style: { background: "none", border: "none", color: "#334155", cursor: "pointer", fontSize: 14, padding: "0 2px" }, children: "\u2715" })
+      ] }),
+      res.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "#1a1f35", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, overflow: "hidden", zIndex: 300, boxShadow: "0 8px 32px rgba(0,0,0,0.6)" }, children: res.map((r, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { onClick: () => pick(r), style: { padding: "9px 12px", cursor: "pointer", borderTop: i > 0 ? "1px solid rgba(255,255,255,0.05)" : "none", display: "flex", alignItems: "center", gap: 10 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 11, color: "#6366f1", minWidth: 30, flexShrink: 0 }, children: r.iata }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { minWidth: 0 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 12, fontWeight: 700, color: "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, children: r.cityName || r.name }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontFamily: "Syne,sans-serif", fontSize: 9, color: "#475569" }, children: [
+            r.name,
+            r.countryName ? ` \xB7 ${r.countryName}` : ""
+          ] })
+        ] })
+      ] }, i)) })
+    ] });
+  }
+  function App() {
+    const [year, setYear] = (0, import_react.useState)(2026);
+    const [selDate, setSelDate] = (0, import_react.useState)(null);
+    const [origin, setOrigin] = (0, import_react.useState)("LON");
+    const [dest, setDest] = (0, import_react.useState)(null);
+    const [priceMap, setPriceMap] = (0, import_react.useState)({});
+    const [priceLoading, setPriceLoading] = (0, import_react.useState)(false);
+    const [priceError, setPriceError] = (0, import_react.useState)(null);
+    const [showP, setShowP] = (0, import_react.useState)(false);
+    const [bookings, setBookings] = (0, import_react.useState)(() => loadBk());
+    const [rangeStart, setRangeStart] = (0, import_react.useState)(null);
+    const [showAL, setShowAL] = (0, import_react.useState)(false);
+    const [hcBookings, setHcBookings] = (0, import_react.useState)(() => loadHC());
+    const [hcRangeStart, setHcRangeStart] = (0, import_react.useState)(null);
+    const [showHC, setShowHC] = (0, import_react.useState)(false);
+    const [showSettings, setShowSettings] = (0, import_react.useState)(false);
+    const [alTotal, setAlTotal] = (0, import_react.useState)(() => loadCfg().alTotal || AL_TOTAL_DEFAULT);
+    const [hcTarget, setHcTarget] = (0, import_react.useState)(() => loadCfg().hcTarget || HC_TARGET_DEFAULT);
+    (0, import_react.useEffect)(() => {
+      saveBk(bookings);
+    }, [bookings]);
+    (0, import_react.useEffect)(() => {
+      saveHC(hcBookings);
+    }, [hcBookings]);
+    (0, import_react.useEffect)(() => {
+      saveCfg({ alTotal, hcTarget });
+    }, [alTotal, hcTarget]);
+    const monthPairs = (0, import_react.useMemo)(() => {
+      const p = [];
+      for (let m = 0; m < 12; m += 2) p.push([m, m + 1]);
+      return p;
+    }, []);
+    const yearUsed = bookings.filter((b) => b.year === year).reduce((s, b) => s + b.alDays, 0);
+    const yearHCUsed = hcBookings.filter((b) => b.year === year).reduce((s, b) => s + b.alDays, 0);
+    function addAL(start, end) {
+      const alDays = countAL(start, end);
+      if (!alDays) return;
+      setBookings((prev) => [...prev, { id: Date.now().toString(), start, end, alDays, year: parseInt(start.slice(0, 4)) }]);
+      setRangeStart(null);
+    }
+    function deleteBk(id) {
+      setBookings((prev) => prev.filter((b) => b.id !== id));
+    }
+    function addHC(start, end) {
+      const alDays = countAL(start, end);
+      if (!alDays) return;
+      setHcBookings((prev) => [...prev, { id: Date.now().toString(), start, end, alDays, year: parseInt(start.slice(0, 4)) }]);
+      setHcRangeStart(null);
+    }
+    function deleteHC(id) {
+      setHcBookings((prev) => prev.filter((b) => b.id !== id));
+    }
+    function handleImport(data) {
+      if (data.bookings) setBookings(data.bookings);
+      if (data.hcBookings) setHcBookings(data.hcBookings);
+      if (data.config?.alTotal) setAlTotal(data.config.alTotal);
+      if (data.config?.hcTarget) setHcTarget(data.config.hcTarget);
+    }
+    const fetchPrices = (0, import_react.useCallback)(async (org, dst) => {
+      if (!dst) return;
+      setPriceLoading(true);
+      setPriceError(null);
+      setPriceMap({});
+      const map = await fetchPriceCalendar(org, dst.iata);
+      if (!Object.keys(map).length) {
+        setPriceError(`No fare data for ${org}\u2192${dst.iata}.`);
+        setShowP(false);
+      } else {
+        setPriceMap(map);
+        setShowP(true);
+      }
+      setPriceLoading(false);
+    }, []);
+    function handleDest(loc) {
+      setDest(loc);
+      fetchPrices(origin, loc);
+    }
+    function handleOrigin(iata) {
+      setOrigin(iata);
+      if (dest) fetchPrices(iata, dest);
+    }
+    const originLabel = AIRPORTS.find((a) => a.iata === origin)?.label || "London";
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("style", { children: `
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+        body{background:#0a0e1a!important;overscroll-behavior:none;}
+        ::-webkit-scrollbar{display:none;}
+        input{font-size:16px!important;}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes spin{to{transform:rotate(360deg)}}
+      ` }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { maxWidth: 430, margin: "0 auto", minHeight: "100dvh", background: "radial-gradient(ellipse at 50% -20%,rgba(99,102,241,0.14) 0%,transparent 60%),#0a0e1a", display: "flex", flexDirection: "column", fontFamily: "Syne,sans-serif" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "13px 13px 0", background: "rgba(10,14,26,0.97)", backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 100 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 16, fontWeight: 800, color: "#f1f5f9", letterSpacing: -0.5 }, children: "Holiday Planner" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 9, color: "#1e293b", fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase" }, children: "Lewisham \xB7 UK Bank Holidays" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 7 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setShowSettings(true), style: { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#475569", fontSize: 15 }, children: "\u2699" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 9, overflow: "hidden" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => {
+                  setYear((y) => Math.max(2026, y - 1));
+                  setRangeStart(null);
+                  setHcRangeStart(null);
+                }, style: { background: "none", border: "none", color: year === 2026 ? "#1e293b" : "#94a3b8", padding: "6px 10px", cursor: year === 2026 ? "default" : "pointer", fontSize: 13 }, children: "\u2039" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontWeight: 800, fontSize: 13, color: "#e2e8f0", minWidth: 32, textAlign: "center" }, children: year }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => {
+                  setYear((y) => Math.min(2030, y + 1));
+                  setRangeStart(null);
+                  setHcRangeStart(null);
+                }, style: { background: "none", border: "none", color: year === 2030 ? "#1e293b" : "#94a3b8", padding: "6px 10px", cursor: year === 2030 ? "default" : "pointer", fontSize: 13 }, children: "\u203A" })
+              ] })
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TrackerBars, { alUsed: yearUsed, hcUsed: yearHCUsed, alTotal, hcTarget, onOpenAL: () => setShowAL(true), onOpenHC: () => setShowHC(true) }),
+          rangeStart && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginBottom: 8, padding: "8px 12px", background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.35)", borderRadius: 9, display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontFamily: "Syne,sans-serif", fontSize: 11, color: "#a78bfa", fontWeight: 700 }, children: [
+              "AL range from ",
+              parse(rangeStart).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+              " \u2014 tap end date"
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setRangeStart(null), style: { background: "none", border: "none", color: "#475569", cursor: "pointer", fontFamily: "Syne,sans-serif", fontSize: 11, fontWeight: 700 }, children: "Cancel" })
+          ] }),
+          hcRangeStart && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginBottom: 8, padding: "8px 12px", background: "rgba(34,211,238,0.10)", border: "1px solid rgba(34,211,238,0.35)", borderRadius: 9, display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontFamily: "Syne,sans-serif", fontSize: 11, color: "#22d3ee", fontWeight: 700 }, children: [
+              "HC range from ",
+              parse(hcRangeStart).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+              " \u2014 tap end date"
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setHcRangeStart(null), style: { background: "none", border: "none", color: "#475569", cursor: "pointer", fontFamily: "Syne,sans-serif", fontSize: 11, fontWeight: 700 }, children: "Cancel" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", gap: 5, marginBottom: 8 }, children: AIRPORTS.map((a) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => handleOrigin(a.iata), style: { flex: 1, padding: "5px 2px", borderRadius: 7, border: "none", cursor: "pointer", background: origin === a.iata ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.05)", color: origin === a.iata ? "#a5b4fc" : "#334155", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 9, outline: origin === a.iata ? "1px solid rgba(99,102,241,0.4)" : "none", transition: "all 0.15s", whiteSpace: "nowrap" }, children: a.label }, a.iata)) }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LocSearch, { onSelect: handleDest }),
+            dest && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setShowP((v) => !v), style: { flexShrink: 0, padding: "8px 10px", borderRadius: 9, border: "none", cursor: "pointer", background: showP ? "rgba(99,102,241,0.22)" : "rgba(255,255,255,0.05)", color: showP ? "#a5b4fc" : "#334155", fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 10, outline: showP ? "1px solid rgba(99,102,241,0.35)" : "1px solid rgba(255,255,255,0.08)", transition: "all 0.15s" }, children: priceLoading ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { display: "inline-block", animation: "spin 0.7s linear infinite" }, children: "\u21BB" }) : "\u2708\uFE0F Prices" })
+          ] }),
+          dest && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginBottom: 6, fontFamily: "Syne,sans-serif", fontSize: 10, color: "#334155", display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "#475569" }, children: originLabel }),
+              " \u2192 ",
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "#a5b4fc", fontWeight: 700 }, children: dest.cityName || dest.name }),
+              priceLoading && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "#1e293b" }, children: " \xB7 fetching\u2026" }),
+              !priceLoading && Object.keys(priceMap).length > 0 && showP && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { color: "#1e293b" }, children: [
+                " \xB7 ",
+                Object.keys(priceMap).length,
+                " dates"
+              ] })
+            ] }),
+            showP && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", gap: 8 }, children: [["#4ade80", "Cheap"], ["#fbbf24", "Mid"], ["#f87171", "Pricey"]].map(([c, l]) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 3 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { width: 6, height: 6, borderRadius: 2, background: c } }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 8, color: "#334155", fontWeight: 600 }, children: l })
+            ] }, l)) })
+          ] }),
+          priceError && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginBottom: 6, fontFamily: "Syne,sans-serif", fontSize: 10, color: "#f87171" }, children: priceError }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", gap: 10, paddingBottom: 9, borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 8 }, children: [["#4ade80", "Bank Hol", false], ["#60a5fa", "School Hol", false], ["#a78bfa", "My AL", true], ["#22d3ee", "Holiday Club", true]].map(([color, label, round]) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 4 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { width: 7, height: 7, borderRadius: round ? "50%" : 2, background: color } }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 8.5, color: "#334155", fontWeight: 600 }, children: label })
+          ] }, label)) })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 20, animation: "fadeUp 0.25s ease" }, children: monthPairs.map(([m1, m2], pi) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { margin: "10px 10px 0", background: "rgba(255,255,255,0.022)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 13, padding: "10px" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 10 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MiniMonth, { year, month: m1, onPress: setSelDate, selDate, priceMap, showP, bookings, rangeStart, hcBookings, hcRangeStart }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { width: 1, background: "rgba(255,255,255,0.05)", flexShrink: 0 } }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MiniMonth, { year, month: m2, onPress: setSelDate, selDate, priceMap, showP, bookings, rangeStart, hcBookings, hcRangeStart })
+        ] }) }, pi)) }),
+        selDate && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(DaySheet, { ds: selDate, onClose: () => setSelDate(null), priceMap, showP, dest, origin, bookings, onAddAL: addAL, onStartRange: setRangeStart, onDeleteBk: deleteBk, rangeStart, hcBookings, onAddHC: addHC, onStartHCRange: setHcRangeStart, onDeleteHC: deleteHC, hcRangeStart }),
+        showAL && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ALPanel, { bookings, year, alTotal, onDelete: deleteBk, onClose: () => setShowAL(false) }),
+        showHC && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(HCPanel, { hcBookings, year, onDelete: deleteHC, onClose: () => setShowHC(false) }),
+        showSettings && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SettingsPanel, { alTotal, hcTarget, onAlTotal: setAlTotal, onHcTarget: setHcTarget, bookings, hcBookings, onImport: handleImport, onClose: () => setShowSettings(false) })
+      ] })
+    ] });
+  }
+  (0, import_client.createRoot)(document.getElementById("root")).render(/* @__PURE__ */ (0, import_jsx_runtime.jsx)(App, {}));
+  return __toCommonJS(entry_exports);
+})();
+  </script>
+</body>
+</html>
